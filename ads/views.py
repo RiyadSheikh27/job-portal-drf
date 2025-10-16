@@ -1,3 +1,4 @@
+# views.py
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -11,95 +12,155 @@ from .models import Ad, AdView, UserEarning
 from .serializers import AdSerializer, AdViewSerializer, UserEarningSerializer
 from accounts.permissions import IsAdmin, IsUser
 
-
 class AdViewSet(viewsets.ModelViewSet):
     queryset = Ad.objects.all()
     serializer_class = AdSerializer
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in ["list", "create", "update", "partial_update", "destroy"]:
             return [IsAdmin()]
         return []
 
-    # User dashboard: only active ads
     @action(detail=False, methods=["get"], permission_classes=[IsUser])
     def user_ads(self, request):
+        # ← CHANGED: Filter out ads that user has viewed in the last 24 hours
+        # Get all active ads
         ads = Ad.objects.filter(status="active")
+
+        # Get ads that the user viewed within the last 24 hours
+        twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+        recently_viewed_ad_ids = AdView.objects.filter(
+            user=request.user,
+            viewed_at__gte=twenty_four_hours_ago
+        ).values_list('ad_id', flat=True)
+
+        # Exclude recently viewed ads from the response
+        ads = ads.exclude(id__in=recently_viewed_ad_ids)
+
         serializer = self.get_serializer(ads, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAdmin])
+    @action(detail=False, methods=["get"], permission_classes=[IsAdmin])
     def admin_stats(self, request):
         total_ads = Ad.objects.count()
-        total_amount_allocated = Ad.objects.aggregate(total=Sum('amount'))['total'] or 0
+        total_amount_allocated = Ad.objects.aggregate(total=Sum("amount"))["total"] or 0
         total_views = AdView.objects.count()
-        total_amount_paid = AdView.objects.aggregate(total=Sum('earned_amount'))['total'] or 0
-
-        return Response({
-            "total_ads": total_ads,
-            "total_amount_allocated": total_amount_allocated,
-            "total_views": total_views,
-            "total_amount_paid": total_amount_paid
-        })
+        total_amount_paid = (
+            AdView.objects.aggregate(total=Sum("earned_amount"))["total"] or 0
+        )
+        return Response(
+            {
+                "total_ads": total_ads,
+                "total_amount_allocated": total_amount_allocated,
+                "total_views": total_views,
+                "total_amount_paid": total_amount_paid,
+            }
+        )
 
 
 class AdWatchingViewSet(viewsets.ViewSet):
-    """
-    Handles watching ads and rewarding users
-    """
-
-    permission_classes = [AllowAny]
+    permission_classes = [IsUser]
 
     @action(detail=True, methods=["post"])
     def start_view(self, request, pk=None):
         try:
             ad = Ad.objects.get(pk=pk, status="active")
         except Ad.DoesNotExist:
-            return Response({"error": "Ad not found or inactive"}, status=404)
+            return Response({"success": "false", "error": "Ad not found or inactive"}, status=404)
 
-        # check if user already viewed in last 24h
-        last_view = (
-            AdView.objects.filter(user=request.user, ad=ad)
-            .order_by("-viewed_at")
-            .first()
-        )
-        if last_view and not last_view.can_view_again():
+        # ← CHANGED: Check if user has viewed this ad in the last 24 hours
+        twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+        recent_view = AdView.objects.filter(
+            user=request.user,
+            ad=ad,
+            viewed_at__gte=twenty_four_hours_ago
+        ).first()
+
+        if recent_view:
+            # Calculate remaining time until user can view this ad again
+            can_view_at = recent_view.viewed_at + timedelta(hours=24)
+            remaining_seconds = (can_view_at - timezone.now()).total_seconds()
+            remaining_hours = int(remaining_seconds // 3600)
+            remaining_minutes = int((remaining_seconds % 3600) // 60)
             return Response(
-                {"error": "You can view this ad again after 24 hours"}, status=400
+                {
+                    "success": "false",
+                    "error": f"You can view this ad again after {remaining_hours}h {remaining_minutes}m."
+                },
+                status=400
             )
 
-        # start session
+        # Check 30-minute rate limit (10 ads per 30 minutes)
+        thirty_minutes_ago = timezone.now() - timedelta(minutes=30)
+        recent_views = AdView.objects.filter(
+            user=request.user,
+            viewed_at__gte=thirty_minutes_ago
+        ).count()
+
+        if recent_views >= 10:
+            oldest_recent = (
+                AdView.objects.filter(user=request.user, viewed_at__gte=thirty_minutes_ago)
+                .order_by("viewed_at")
+                .first()
+            )
+            if oldest_recent:
+                next_available_time = oldest_recent.viewed_at + timedelta(minutes=30)
+                remaining_seconds = (next_available_time - timezone.now()).total_seconds()
+                remaining_minutes = int(remaining_seconds // 60)
+                remaining_secs = int(remaining_seconds % 60)
+                return Response(
+                    {
+                        "success": "false",
+                        "error": f"You can watch more ads after {remaining_minutes}m {remaining_secs}s."
+                    },
+                    status=400
+                )
+
+        # ← REMOVED: Duplicate 24-hour check (already done above)
+        # Store start time in session
         request.session[f"ad_{ad.id}_start"] = timezone.now().isoformat()
-        return Response({"message": "Ad view started. Please wait full duration."})
+        return Response({
+            "success": "true",
+            "message": "Ad view started. Please wait full duration.",
+            "started_at": ad.created_at,
+            "Duration": ad.duration
+        })
 
     @action(detail=True, methods=["post"])
     def complete_view(self, request, pk=None):
         try:
             ad = Ad.objects.get(pk=pk, status="active")
         except Ad.DoesNotExist:
-            return Response({"error": "Ad not found or inactive"}, status=404)
+            return Response({"success": "false", "error": "Ad not found or inactive"}, status=404)
 
         start_time = request.session.get(f"ad_{ad.id}_start")
         if not start_time:
-            return Response({"error": "You must start viewing first"}, status=400)
+            return Response({"success": "false", "error": "You must start viewing first"}, status=400)
 
         start_time = timezone.datetime.fromisoformat(start_time)
         elapsed = (timezone.now() - start_time).total_seconds()
 
         if elapsed < ad.duration:
-            return Response({"error": "You must view the full duration"}, status=400)
+            return Response({"success": "false", "error": "You must view the full duration"}, status=400)
 
-        # Save AdView
+        # ← CHANGED: Create AdView record (this automatically hides the ad for 24 hours)
+        # When user completes viewing, create an AdView record
+        # This record will be used to filter out this ad from user_ads endpoint for 24 hours
         ad_view = AdView.objects.create(
             user=request.user, ad=ad, earned_amount=ad.amount
         )
 
-        # Update UserEarning
         earning, _ = UserEarning.objects.get_or_create(user=request.user)
         earning.add_earning(ad.amount)
 
-        return Response({"message": f"You earned {ad.amount} USD", "earned": ad.amount})
+        # Clear session data
+        del request.session[f"ad_{ad.id}_start"]
 
+        return Response({
+            "success": "true",
+            "message": f"You earned {ad.amount} USD",
+            "earned": ad.amount
+        })
 
 class UserEarningViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserEarningSerializer
@@ -107,3 +168,4 @@ class UserEarningViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return UserEarning.objects.filter(user=self.request.user)
+    

@@ -5,12 +5,31 @@ from rest_framework.permissions import AllowAny
 from .serializers import RegisterSerializer, LoginSerializer
 from .models import User
 
-class RegisterView(generics.CreateAPIView):
+
+class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["role"] = "user"
+        return context
 
+
+class AdminRegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny]
+    serializer_class = RegisterSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["role"] = "admin"
+        return context
+
+
+
+# 👉 Login (same as before)
 class LoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer

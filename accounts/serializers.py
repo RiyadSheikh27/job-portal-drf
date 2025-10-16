@@ -9,7 +9,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['role', 'username', 'email', 'password1', 'password2']
+        fields = ['username', 'email', 'password1', 'password2']  # ❌ role বাদ
+        extra_kwargs = {
+            "username": {"required": True},
+            "email": {"required": True}
+        }
 
     def validate(self, attrs):
         if attrs['password1'] != attrs['password2']:
@@ -17,7 +21,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        role = validated_data['role']
+        # role এখানে view থেকে আসবে
+        role = self.context.get("role", "user")
         username = validated_data['username']
         email = validated_data['email']
         password = validated_data['password1']
@@ -28,17 +33,26 @@ class RegisterSerializer(serializers.ModelSerializer):
             role=role,
             password=password
         )
-        Token.objects.create(user=user)  # create auth token
+        Token.objects.create(user=user)
         return user
 
 
+
 class LoginSerializer(serializers.Serializer):
-    role = serializers.CharField(write_only=True, style={'input_type': 'role'})
+    role = serializers.CharField(write_only=True)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     def validate(self, data):
-        user = authenticate(email=data['email'], password=data['password'])
+        email = data.get("email")
+        password = data.get("password")
+        role = data.get("role")
+
+        user = authenticate(email=email, password=password)
+
         if user and user.is_active:
+            if user.role != role:   # 🚨 role check
+                raise serializers.ValidationError("Role does not match this account.")
             return user
         raise serializers.ValidationError("Invalid Credentials")
+

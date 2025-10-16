@@ -1,3 +1,4 @@
+# serializers.py (No changes needed)
 from rest_framework import serializers
 from .models import *
 
@@ -17,4 +18,3 @@ class UserEarningSerializer(serializers.ModelSerializer):
       class Meta:
             model = UserEarning
             fields = ["total_earned", "today_earned", "last_updated"]
-
