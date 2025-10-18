@@ -9,7 +9,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2']  # ❌ role বাদ
+        fields = ['username', 'email', 'password1', 'password2']
         extra_kwargs = {
             "username": {"required": True},
             "email": {"required": True}
@@ -21,7 +21,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        # role এখানে view থেকে আসবে
         role = self.context.get("role", "user")
         username = validated_data['username']
         email = validated_data['email']

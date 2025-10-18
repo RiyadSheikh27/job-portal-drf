@@ -30,7 +30,6 @@ class Ad(models.Model):
     duration = models.PositiveIntegerField(help_text="Ad Duration in Seconds")
     max_show = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
-    # ← REMOVED: is_ad_show field (not needed)
     note = models.TextField(blank=True, null=True)
 
     ad_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
@@ -52,7 +51,6 @@ class AdView(models.Model):
     earned_amount = models.DecimalField(max_digits=10, decimal_places=4, default=0.0)
 
     def can_view_again(self):
-        # ← CHANGED: This method checks if 24 hours have passed since last view
         return self.viewed_at + timedelta(hours=24) < timezone.now()
 
     def __str__(self):
@@ -96,3 +94,5 @@ class UserEarning(models.Model):
     def __str__(self):
         """Readable representation in admin panel."""
         return f"{self.user.username} | Total: ${self.total_earned} | Today: ${self.today_earned}"
+
+

@@ -24,6 +24,7 @@ router = DefaultRouter()
 router.register("ads", AdViewSet, basename="ads")
 router.register("watch", AdWatchingViewSet, basename="watch")
 router.register("earnings", UserEarningViewSet, basename="earnings")
+router.register('users', UserViewSet, basename='users')
 
 urlpatterns = [
     path('', include(router.urls)),
