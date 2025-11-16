@@ -95,4 +95,23 @@ class UserEarning(models.Model):
         """Readable representation in admin panel."""
         return f"{self.user.username} | Total: ${self.total_earned} | Today: ${self.today_earned}"
 
+class AdSession(models.Model):
+    """Track ad viewing sessions (replaces session storage)"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    ad = models.ForeignKey(Ad, on_delete=models.CASCADE)
+    started_at = models.DateTimeField(auto_now_add=True)
+    is_completed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'ad_sessions'
+        indexes = [
+            models.Index(fields=['user', 'ad', 'is_completed']),
+        ]
+
+    def time_elapsed(self):
+        """Calculate elapsed time in seconds"""
+        return (timezone.now() - self.started_at).total_seconds()
+
+    def __str__(self):
+        return f"{self.user.username} - Ad {self.ad.id} - {'Completed' if self.is_completed else 'Active'}"
 

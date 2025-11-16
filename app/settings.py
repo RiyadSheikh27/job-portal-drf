@@ -50,6 +50,53 @@ INSTALLED_APPS = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# CORS_ALLOW_CREDENTIALS = True
+
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+#     "https://optyit.com/",
+#     "https://fe-fgit.optyit.com/",
+#     "http://localhost:3000/",
+# ]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",  # Your React frontend
+#     "http://127.0.0.1:5173",
+#     "http://localhost:3000",
+#     "http://localhost:8001",
+#     "https://localhost:8001",  # In case you use port 3000
+#     "http://localhost:5174",  # Vite alternate port
+#     "https://optyit.com",
+#     "http://127.0.0.1:8000",
+#     "http://127.0.0.1:8001",
+#     "https://127.0.0.1:8001",
+#     # Add your production domain when deploying
+#     # "https://yourdomain.com",
+# ]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# Additional CORS settings
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
 # Optional: Swagger settings
 SWAGGER_SETTINGS = {
     "SECURITY_DEFINITIONS": {
@@ -68,6 +115,7 @@ AUTH_USER_MODEL = "accounts.User"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -90,7 +138,7 @@ ROOT_URLCONF = "app.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "static",],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -181,7 +229,7 @@ JAZZMIN_SETTINGS = {
     # Title on the brand (19 chars max)
     "site_brand": "Job Portal",
     # Logo to use for your site, must be present in static files, used for brand on top left
-    "site_logo": "images/logo.png",
+    # "site_logo": "images/logo.png",
     # CSS classes that are applied to the logo above
     "site_logo_classes": "img-circle",
     # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)

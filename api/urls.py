@@ -17,7 +17,7 @@ schema_view = get_schema_view(
       license=openapi.License(name="BSD License"),
    ),
    public=True,
-   permission_classes=(permissions.AllowAny,),  # Add this line
+   permission_classes=(permissions.AllowAny,),
 )
 
 router = DefaultRouter()
@@ -25,6 +25,11 @@ router.register("ads", AdViewSet, basename="ads")
 router.register("watch", AdWatchingViewSet, basename="watch")
 router.register("earnings", UserEarningViewSet, basename="earnings")
 router.register('users', UserViewSet, basename='users')
+
+#For third party API
+router.register("view", ThirdPartyAdWatchingViewSet, basename="thirdpartywatch")
+router.register("third-party-ads", ThirdPartyAdViewSet, basename="thirdpartyads")
+
 
 urlpatterns = [
     path('', include(router.urls)),
