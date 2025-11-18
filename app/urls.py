@@ -1,4 +1,3 @@
-# app/urls.py (main project)
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
@@ -9,6 +8,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include("accounts.urls")),
     path('api/', include("api.urls")),
+    path("ckeditor5/", include('django_ckeditor_5.urls')),
 ]
 
 if settings.DEBUG:
